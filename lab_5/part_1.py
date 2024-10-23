@@ -1,0 +1,187 @@
+import json
+import tkinter as tk
+from tkinter import simpledialog, messagebox, filedialog, ttk
+
+from lab_3.part_1 import Student
+
+
+def print_students(students_list):
+    students_info = ""
+    for i in range(0, len(students_list)):
+        students_info += "=" * 10 + f" студент №{i} " + "=" * 10 + '\n'
+        students_info += "Номер зачетки: " + students_list[i].number_zatch + '\n'
+        students_info += "Фамилия: " + students_list[i].surname + '\n'
+        students_info += "Имя: " + students_list[i].name + '\n'
+        students_info += "Отчество: " + students_list[i].patronymic + '\n'
+        students_info += "Пол: " + students_list[i].gender + '\n'
+        students_info += "Дата рождения: " + students_list[i].birthday_date + '\n'
+        students_info += "Телефон: " + students_list[i].phone_number + '\n'
+        students_info += "Адрес: " + students_list[i].address + '\n'
+        students_info += "Группа: " + students_list[i].group + '\n'
+    messagebox.showinfo("Список студентов", students_info)
+
+
+def show_info():
+    messagebox.showinfo("О программе", "Разработчик: Куксенко Д.С.\n"
+                                       "Группа: 22ПГ")
+
+
+class StudentApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Управление студентами")
+        self.students_list = []
+        self.current_file = None
+
+        self.labels = ["Номер зачетки", "Фамилия", "Имя", "Отчество", "Пол", "Дата рождения", "Телефон", "Адрес",
+                       "Группа"]
+        self.entries = {}
+
+        self.menu_bar = tk.Menu(root)
+        self.file_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.file_menu.add_command(label="Создать", command=self.clear_form)
+        self.file_menu.add_command(label="Открыть", command=self.open_file)
+        self.file_menu.add_command(label="Сохранить", command=self.save_file)
+        self.file_menu.add_command(label="Сохранить как...", command=self.save_file_as)
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label="Выход", command=root.quit)
+        self.menu_bar.add_cascade(label="Файл", menu=self.file_menu)
+
+        self.help_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.help_menu.add_command(label="О программе", command=show_info)
+        self.menu_bar.add_cascade(label="Справка", menu=self.help_menu)
+
+        root.config(menu=self.menu_bar)
+
+    def create_form(self):
+        for i, label in enumerate(self.labels):
+            if label != "Пол":
+                tk.Label(self.root, text=label).grid(row=i, column=0, padx=10, pady=5)
+                entry = tk.Entry(self.root)
+                entry.grid(row=i, column=1)
+                self.entries[label] = entry
+            else:
+                tk.Label(self.root, text=label).grid(row=i, column=0, padx=10, pady=5)
+                self.gender_var = tk.StringVar()
+                tk.Radiobutton(self.root, text="М", variable=self.gender_var, value="М").grid(row=i, column=1,
+                                                                                              sticky="nw")
+                tk.Radiobutton(root, text="Ж", variable=self.gender_var, value="Ж").grid(row=i, column=1, sticky="ne")
+
+        tk.Button(self.root, text="Добавить студента", command=self.add_student).grid(row=len(self.labels), column=0,
+                                                                                      padx=10, pady=5)
+        tk.Button(self.root, text="Показать студентов", command=self.show_students).grid(row=len(self.labels), column=1,
+                                                                                         padx=10, pady=5)
+        tk.Button(self.root, text="Поиск по группе", command=self.search_by_group).grid(row=len(self.labels), column=2,
+                                                                                        padx=10, pady=5)
+        tk.Button(self.root, text="Удалить студента", command=self.del_student).grid(row=len(self.labels), column=3,
+                                                                                     padx=10, pady=5)
+
+    def clear_form(self):
+        self.students_list.clear()
+        self.create_form()
+
+    def open_file(self):
+        self.students_list.clear()
+        file_path = filedialog.askopenfilename(title="Выберите файл", filetypes=[("JSON Files", "*.json")])
+        if file_path:
+            self.current_file = file_path
+            with open(file_path, 'r') as fcc_file:
+                file_data = json.load(fcc_file)
+                for student in file_data:
+                    new_student = Student(student['number_zatch'], student['surname'], student['name'], student['patronymic'],
+                                          student['gender'], student['birthday_date'], student['phone_number'], student['address'],
+                                          student['group'])
+                    self.students_list.append(new_student)
+            messagebox.showinfo("Информация", "Данные успешно загружены.")
+            self.create_form()
+
+    def save_file(self):
+        if not self.current_file:
+            self.save_file_as()
+        else:
+            with open(self.current_file, 'w', encoding='utf-8') as file:
+                json_data = [student.to_dict() for student in self.students_list]
+                json.dump(json_data, file, ensure_ascii=False, indent=4)
+            messagebox.showinfo("Информация", f"Данные успешно сохранены в формате JSON в {self.current_file}.")
+
+    def save_file_as(self):
+        file_path = filedialog.asksaveasfilename(title="Сохранить как", defaultextension=".json", filetypes=[("JSON Files", "*.json")])
+        if file_path:
+            self.current_file = file_path
+            with open(file_path, 'w', encoding='utf-8') as file:
+                json_data = [student.to_dict() for student in self.students_list]
+                json.dump(json_data, file, ensure_ascii=False, indent=4)
+            messagebox.showinfo("Информация", f"Данные успешно сохранены в формате JSON в {self.current_file}.")
+
+    def add_student(self):
+        student_data = {
+            'number_zatch': next((entry.get() for label, entry in self.entries.items() if label == 'Номер зачетки'),
+                                 None),
+            'surname': next((entry.get() for label, entry in self.entries.items() if label == 'Фамилия'), None),
+            'name': next((entry.get() for label, entry in self.entries.items() if label == 'Имя'), None),
+            'patronymic': next((entry.get() for label, entry in self.entries.items() if label == 'Отчество'), None),
+            'gender': self.gender_var.get(),
+            'birthday_date': next((entry.get() for label, entry in self.entries.items() if label == 'Дата рождения'),
+                                  None),
+            'phone_number': next((entry.get() for label, entry in self.entries.items() if label == 'Телефон'), None),
+            'address': next((entry.get() for label, entry in self.entries.items() if label == 'Адрес'), None),
+            'group': next((entry.get() for label, entry in self.entries.items() if label == 'Группа'), None)
+        }
+
+        new_student = Student(**student_data)
+        self.students_list.append(new_student)
+        messagebox.showinfo("Успех", "Студент добавлен!")
+
+    def show_students(self):
+        if not self.students_list:
+            messagebox.showinfo("Информация", "Список студентов пуст.")
+            return
+        print_students(self.students_list)
+
+    def del_student(self):
+        if not self.students_list:
+            messagebox.showinfo("Информация", "Список студентов пуст.")
+            return
+        position = simpledialog.askinteger("Удаление студента", "Введите № cтудента в списке для удаления:")
+        if position is None:
+            return
+        try:
+            self.students_list.pop(position)
+            messagebox.showinfo("Успех", "Студент удален!")
+        except IndexError:
+            messagebox.showerror("Ошибка", "Студент не найден.")
+        except Exception as e:
+            print(f"Ошибка: {e}")
+
+    def search_by_group(self):
+        if not self.students_list:
+            messagebox.showinfo("Информация", "Список студентов пуст.")
+            return
+        unique_groups = set(student.group for student in self.students_list)
+        search_window = tk.Toplevel(self.root)
+        search_window.title("Поиск по группе")
+
+        tk.Label(search_window, text="Выберите группу:").pack(padx=10, pady=10)
+        group_combobox = ttk.Combobox(search_window, values=list(unique_groups))
+        group_combobox.pack(padx=10, pady=10)
+
+        def on_search():
+            group_name = group_combobox.get()
+            if not group_name:
+                messagebox.showerror("Ошибка", "Выберите группу.")
+                return
+            found_students = [student for student in self.students_list if student.group == group_name]
+            if not found_students:
+                messagebox.showinfo("Результаты поиска", f"Студенты в группе '{group_name}' не найдены.")
+            else:
+                print_students(found_students)
+
+            search_window.destroy()
+
+        tk.Button(search_window, text="Поиск", command=on_search).pack(padx=10, pady=10)
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = StudentApp(root)
+    root.mainloop()
