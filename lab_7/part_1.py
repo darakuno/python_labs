@@ -1,10 +1,6 @@
-# 8. База данных «Студенты».
-# Функционал приложения:
-# - добавление информации в основную таблица;
-# - удалении информации из основной таблицы;
-# - отображение информации из основной таблицы.
-
 import sqlite3
+import tkinter as tk
+from tkinter import messagebox, simpledialog, ttk
 
 
 def connect_db():
@@ -15,25 +11,22 @@ def connect_db():
 def init_tables():
     conn = connect_db()
     cursor = conn.cursor()
-    cursor.execute("DROP TABLE students")
-    cursor.execute("DROP TABLE groups")
+    cursor.execute("DROP TABLE IF EXISTS students")
+    cursor.execute("DROP TABLE IF EXISTS groups")
     cursor.execute('''
             CREATE TABLE IF NOT EXISTS groups (
                 group_id INTEGER PRIMARY KEY,
-                name TEXT NOT NULL
-            )
+                name TEXT NOT NULL )
         ''')
-
     cursor.execute('''
             CREATE TABLE IF NOT EXISTS students (
                 id INTEGER PRIMARY KEY,
                 name TEXT NOT NULL,
                 age INTEGER NOT NULL,
-                group_id INTEGER NOT_NULL,
+                group_id INTEGER NOT NULL,
                 FOREIGN KEY (group_id) REFERENCES groups(group_id)
             )
         ''')
-
     conn.commit()
     conn.close()
 
@@ -44,44 +37,37 @@ def add_group(name):
     cursor.execute('INSERT INTO groups (name) VALUES (?)', (name,))
     conn.commit()
     conn.close()
-    print(f"Группа {name} добавлена.")
+    messagebox.showinfo("Информация", f"Группа {name} добавлена.")
 
 
 def display_groups():
     conn = connect_db()
     cursor = conn.cursor()
-
     cursor.execute('SELECT * FROM groups')
     groups = cursor.fetchall()
-
-    print("Список групп:")
-    for group in groups:
-        print(f"ID: {group[0]} Название группы: {group[1]}")
-
     conn.close()
+    return groups
 
 
 def group_exists(group_id):
     conn = connect_db()
     cursor = conn.cursor()
-
     cursor.execute('SELECT COUNT(*) FROM groups WHERE group_id = ?', (group_id,))
     exists = cursor.fetchone()[0] > 0
-
     conn.close()
     return exists
 
 
 def add_student(name, age, group_id):
     if group_id is not None and not group_exists(group_id):
-        print(f"Группа с ID {group_id} не существует. Студент не добавлен.")
+        messagebox.showerror("Ошибка", f"Группа с ID {group_id} не существует. Студент не добавлен.")
         return
     conn = connect_db()
     cursor = conn.cursor()
     cursor.execute('INSERT INTO students (name, age, group_id) VALUES (?, ?, ?)', (name, age, group_id))
     conn.commit()
     conn.close()
-    print("Студент добавлен.")
+    messagebox.showinfo("Информация", "Студент добавлен.")
 
 
 def delete_student(student_id):
@@ -90,78 +76,97 @@ def delete_student(student_id):
     cursor.execute('SELECT COUNT(*) FROM students WHERE id = ?', (student_id,))
     exists = cursor.fetchone()[0] > 0
     if not exists:
-        print(f"Студент с ID = {student_id} не найден. Удалить невозможно")
+        messagebox.showerror("Ошибка", f"Студент с ID = {student_id} не найден. Удалить невозможно")
         return
     cursor.execute('DELETE FROM students WHERE id = ?', (student_id,))
     conn.commit()
     conn.close()
-    print(f"Студент с ID = {student_id} удален.")
+    messagebox.showinfo("Информация", f"Студент с ID = {student_id} удален.")
 
 
 def display_students():
     conn = connect_db()
     cursor = conn.cursor()
-
     cursor.execute('''
-        SELECT students.id, students.name, students.age, groups.name 
-        FROM students LEFT JOIN groups ON students.group_id = groups.group_id
+        SELECT students.id, students.name, students.age, groups.name FROM students LEFT JOIN groups ON students.group_id = groups.group_id
     ''')
-
     students = cursor.fetchall()
-
-    print("Список студентов:")
-    for student in students:
-        print(f"ID: {student[0]} Имя: {student[1]} Возраст: {student[2]} Группа: {student[3]}")
-
     conn.close()
+    return students
 
 
-def main():
-    init_tables()
+class StudentApp:
+    def __init__(self):
+        self.tree = None
+        self.root = tk.Tk()
+        self.root.title("База данных Студенты")
+        self.root.geometry("500x300")
+        self.init_ui()
+        init_tables()
 
-    while True:
-        print("Меню:")
-        print("1. Добавить студента")
-        print("2. Удалить студента")
-        print("3. Отобразить студентов")
-        print("4. Добавить группу")
-        print("5. Отобразить группы")
-        print("6. Выход")
+    def init_ui(self):
+        self.tree = ttk.Treeview(self.root, columns=('ID', 'Имя', 'Возраст', 'Группа'), show='headings')
+        self.tree.heading('ID', text='ID')
+        self.tree.heading('Имя', text='Имя')
+        self.tree.heading('Возраст', text='Возраст')
+        self.tree.heading('Группа', text='Группа')
+        self.tree.pack(fill=tk.BOTH, expand=True)
+        self.tree.column('ID', width=100)
+        self.tree.column('Имя', width=100)
+        self.tree.column('Возраст', width=100)
+        self.tree.column('Группа', width=100)
 
-        choice = input("Выберите действие: ")
+        button_frame = tk.Frame(self.root)
+        button_frame.pack(fill=tk.X)
 
-        if choice == '1':
-            try:
-                name = input("Введите имя студента: ")
-                age = int(input("Введите возраст студента: "))
-                group_id = int(input("Введите ID группы: "))
-                add_student(name, age, group_id)
-            except Exception as e:
-                print(f"Ошибка: {e}")
+        add_student_btn = tk.Button(button_frame, text="Добавить студента", command=self.add_student)
+        add_student_btn.pack(side=tk.LEFT)
 
-        elif choice == '2':
-            try:
-                student_id = int(input("Введите ID студента для удаления: "))
-                delete_student(student_id)
-            except Exception as e:
-                print(f"Ошибка: {e}")
+        delete_student_btn = tk.Button(button_frame, text="Удалить студента", command=self.delete_student)
+        delete_student_btn.pack(side=tk.LEFT)
 
-        elif choice == '3':
-            display_students()
+        add_group_btn = tk.Button(button_frame, text="Добавить группу", command=self.add_group)
+        add_group_btn.pack(side=tk.LEFT)
 
-        elif choice == '4':
-            group_name = input("Введите название группы: ")
+        display_groups_btn = tk.Button(button_frame, text="Отобразить группы", command=self.display_groups)
+        display_groups_btn.pack(side=tk.LEFT)
+
+
+    def add_student(self):
+        name = simpledialog.askstring("Имя студента", "Введите имя студента:")
+        age = simpledialog.askinteger("Возраст студента", "Введите возраст студента:")
+        group_id = simpledialog.askinteger("ID группы", "Введите ID группы:")
+        if name and age is not None:
+            add_student(name, age, group_id)
+            self.display_students()
+
+    def delete_student(self):
+        student_id = simpledialog.askinteger("ID студента", "Введите ID студента для удаления:")
+        if student_id is not None:
+            delete_student(student_id)
+            self.display_students()
+
+    def add_group(self):
+        group_name = simpledialog.askstring("Название группы", "Введите название группы:")
+        if group_name:
             add_group(group_name)
 
-        elif choice == '5':
-            display_groups()
+    def display_students(self):
+        for row in self.tree.get_children():
+            self.tree.delete(row)
+        students = display_students()
+        for student in students:
+            self.tree.insert('', 'end', values=student)
 
-        elif choice == '6':
-            break
-
+    def display_groups(self):
+        groups = display_groups()
+        if groups:
+            group_names = "\n".join([f"ID: {group[0]} Название группы: {group[1]}" for group in groups])
+            messagebox.showinfo("Список групп", group_names)
         else:
-            print("Неверный ввод. Попробуйте снова.")
+            messagebox.showinfo("Список групп", "Список групп пуст")
 
 
 if __name__ == "__main__":
-    main()
+    app = StudentApp()
+    app.root.mainloop()
