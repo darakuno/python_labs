@@ -44,6 +44,7 @@ def add_group(name):
     cursor.execute('INSERT INTO groups (name) VALUES (?)', (name,))
     conn.commit()
     conn.close()
+    print(f"Группа {name} добавлена.")
 
 
 def display_groups():
@@ -55,37 +56,62 @@ def display_groups():
 
     print("Список групп:")
     for group in groups:
-        print(f"ID: {group[0]}, Название группы: {group[1]}")
+        print(f"ID: {group[0]} Название группы: {group[1]}")
 
     conn.close()
 
 
+def group_exists(group_id):
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    cursor.execute('SELECT COUNT(*) FROM groups WHERE group_id = ?', (group_id,))
+    exists = cursor.fetchone()[0] > 0
+
+    conn.close()
+    return exists
+
+
 def add_student(name, age, group_id):
+    if group_id is not None and not group_exists(group_id):
+        print(f"Группа с ID {group_id} не существует. Студент не добавлен.")
+        return
     conn = connect_db()
     cursor = conn.cursor()
     cursor.execute('INSERT INTO students (name, age, group_id) VALUES (?, ?, ?)', (name, age, group_id))
     conn.commit()
     conn.close()
+    print("Студент добавлен.")
 
 
 def delete_student(student_id):
     conn = connect_db()
     cursor = conn.cursor()
+    cursor.execute('SELECT COUNT(*) FROM students WHERE id = ?', (student_id,))
+    exists = cursor.fetchone()[0] > 0
+    if not exists:
+        print(f"Студент с ID = {student_id} не найден. Удалить невозможно")
+        return
     cursor.execute('DELETE FROM students WHERE id = ?', (student_id,))
     conn.commit()
     conn.close()
+    print(f"Студент с ID = {student_id} удален.")
 
 
 def display_students():
     conn = connect_db()
     cursor = conn.cursor()
 
-    cursor.execute('SELECT * FROM students')
+    cursor.execute('''
+        SELECT students.id, students.name, students.age, groups.name 
+        FROM students LEFT JOIN groups ON students.group_id = groups.group_id
+    ''')
+
     students = cursor.fetchall()
 
     print("Список студентов:")
     for student in students:
-        print(f"ID: {student[0]}, Имя: {student[1]}, Возраст: {student[2]}, ID_Группы: {student[3]}")
+        print(f"ID: {student[0]} Имя: {student[1]} Возраст: {student[2]} Группа: {student[3]}")
 
     conn.close()
 
@@ -105,18 +131,20 @@ def main():
         choice = input("Выберите действие: ")
 
         if choice == '1':
-            name = input("Введите имя студента: ")
-            age = int(input("Введите возраст студента: "))
-            group_id = int(input("Введите ID группы (или 0 для отсутствия группы): "))
-            if group_id == 0:
-                group_id = None
-            add_student(name, age, group_id)
-            print("Студент добавлен.")
+            try:
+                name = input("Введите имя студента: ")
+                age = int(input("Введите возраст студента: "))
+                group_id = int(input("Введите ID группы: "))
+                add_student(name, age, group_id)
+            except Exception as e:
+                print(f"Ошибка: {e}")
 
         elif choice == '2':
-            student_id = int(input("Введите ID студента для удаления: "))
-            delete_student(student_id)
-            print("Студент удален.")
+            try:
+                student_id = int(input("Введите ID студента для удаления: "))
+                delete_student(student_id)
+            except Exception as e:
+                print(f"Ошибка: {e}")
 
         elif choice == '3':
             display_students()
@@ -124,7 +152,6 @@ def main():
         elif choice == '4':
             group_name = input("Введите название группы: ")
             add_group(group_name)
-            print("Группа добавлена.")
 
         elif choice == '5':
             display_groups()
