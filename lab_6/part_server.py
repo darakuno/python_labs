@@ -1,16 +1,18 @@
 import socket
+import re
 
+def hex_to_dec(expression):
+    return str(int(expression.group(), 16))
 
 def calculate_expression(expression):
-    expression = expression.replace('F', '0xF').replace('E', '0xE').replace('D', '0xD').replace('C', '0xC').replace('B', '0xB').replace('A', '0xA')
+    expression = re.sub(r'\b[0-9A-Fa-f]+\b', hex_to_dec, expression)
     try:
         result = eval(expression)
-        if hex(result)[0] == "-":
-            return "-" + hex(result).upper()[3:]
+        if result < 0:
+            return "-" + hex(-result).upper()[2:]
         return hex(result).upper()[2:]
     except Exception as e:
         return f"Ошибка: {e}"
-
 
 def start_server(host, port):
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

@@ -11,8 +11,6 @@ def connect_db():
 def init_tables():
     conn = connect_db()
     cursor = conn.cursor()
-    cursor.execute("DROP TABLE IF EXISTS students")
-    cursor.execute("DROP TABLE IF EXISTS groups")
     cursor.execute('''
             CREATE TABLE IF NOT EXISTS groups (
                 group_id INTEGER PRIMARY KEY,
@@ -84,15 +82,42 @@ def delete_student(student_id):
     messagebox.showinfo("Информация", f"Студент с ID = {student_id} удален.")
 
 
+def delete_group(group_id):
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM students WHERE group_id = ?', (group_id,))
+    cursor.execute('SELECT COUNT(*) FROM groups WHERE group_id = ?', (group_id,))
+    exists = cursor.fetchone()[0] > 0
+    if not exists:
+        messagebox.showerror("Ошибка", f"Группа с ID = {group_id} не найдена. Удалить невозможно.")
+        return
+    cursor.execute('DELETE FROM groups WHERE group_id = ?', (group_id,))
+    conn.commit()
+    conn.close()
+    messagebox.showinfo("Информация", f"Группа с ID = {group_id} и все ее студенты удалены.")
+
+
 def display_students():
     conn = connect_db()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT students.id, students.name, students.age, groups.name FROM students LEFT JOIN groups ON students.group_id = groups.group_id
+        SELECT students.id, students.name, students.age, groups.name 
+        FROM students 
+        LEFT JOIN groups ON students.group_id = groups.group_id
     ''')
     students = cursor.fetchall()
     conn.close()
     return students
+
+
+def delete_all():
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM students')
+    cursor.execute('DELETE FROM groups')
+    conn.commit()
+    conn.close()
+    messagebox.showinfo("Информация", "База данных успешно обнулена.")
 
 
 class StudentApp:
@@ -100,7 +125,7 @@ class StudentApp:
         self.tree = None
         self.root = tk.Tk()
         self.root.title("База данных Студенты")
-        self.root.geometry("500x300")
+        self.root.geometry("650x300")
         self.init_ui()
         init_tables()
 
@@ -130,6 +155,25 @@ class StudentApp:
 
         display_groups_btn = tk.Button(button_frame, text="Отобразить группы", command=self.display_groups)
         display_groups_btn.pack(side=tk.LEFT)
+
+        delete_group_btn = tk.Button(button_frame, text="Удалить группу", command=self.delete_group_prompt)
+        delete_group_btn.pack(side=tk.LEFT)
+
+        delete_group_btn = tk.Button(button_frame, text="Сбросить БД", command=self.delete_all)
+        delete_group_btn.pack(side=tk.LEFT)
+        self.display_students()
+
+
+    def delete_all(self):
+        if messagebox.askyesno("Подтверждение", "Вы уверены, что хотите обнулить базу данных?"):
+            delete_all()
+            self.display_students()
+
+    def delete_group_prompt(self):
+        group_id = simpledialog.askinteger("Удалить группу", "Введите ID группы для удаления:")
+        if group_id is not None:
+            delete_group(group_id)
+        self.display_students()
 
 
     def add_student(self):
